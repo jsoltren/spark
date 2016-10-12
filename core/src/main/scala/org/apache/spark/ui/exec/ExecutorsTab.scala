@@ -21,6 +21,7 @@ import scala.collection.mutable.{LinkedHashMap, ListBuffer}
 
 import org.apache.spark.{ExceptionFailure, Resubmitted, SparkConf, SparkContext}
 import org.apache.spark.annotation.DeveloperApi
+import org.apache.spark.internal.Logging
 import org.apache.spark.scheduler._
 import org.apache.spark.storage.{StorageStatus, StorageStatusListener}
 import org.apache.spark.ui.{SparkUI, SparkUITab}
@@ -53,7 +54,8 @@ private[ui] case class ExecutorTaskSummary(
     var shuffleRead: Long = 0L,
     var shuffleWrite: Long = 0L,
     var executorLogs: Map[String, String] = Map.empty,
-    var isAlive: Boolean = true
+    var isAlive: Boolean = true,
+    var isBlacklisted: Int = 0
 )
 
 /**
@@ -62,7 +64,7 @@ private[ui] case class ExecutorTaskSummary(
  */
 @DeveloperApi
 class ExecutorsListener(storageStatusListener: StorageStatusListener, conf: SparkConf)
-    extends SparkListener {
+    extends SparkListener with Logging {
   var executorToTaskSummary = LinkedHashMap[String, ExecutorTaskSummary]()
   var executorEvents = new ListBuffer[SparkListenerEvent]()
 
@@ -155,6 +157,22 @@ class ExecutorsListener(storageStatusListener: StorageStatusListener, conf: Spar
         taskSummary.jvmGCTime += metrics.jvmGCTime
       }
     }
+  }
+
+  override def onExecutorBlacklisted(executorBlacklisted: SparkListenerExecutorBlacklisted)
+  : Unit = synchronized {
+    logInfo(s"Hit onExecutorBlacklisted in ExecutorsTab.scala")
+    val eid = executorBlacklisted.executorId
+    val taskSummary = executorToTaskSummary.getOrElseUpdate(eid, ExecutorTaskSummary(eid))
+    taskSummary.isBlacklisted = 1
+  }
+
+  override def onExecutorUnblacklisted(executorUnblacklisted: SparkListenerExecutorUnblacklisted)
+  : Unit = synchronized {
+    logInfo(s"Hit onExecutorUnblacklisted in ExecutorsTab.scala")
+    val eid = executorUnblacklisted.executorId
+    val taskSummary = executorToTaskSummary.getOrElseUpdate(eid, ExecutorTaskSummary(eid))
+    taskSummary.isBlacklisted = 0
   }
 
 }

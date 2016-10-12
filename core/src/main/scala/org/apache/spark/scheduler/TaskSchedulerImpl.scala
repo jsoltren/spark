@@ -61,14 +61,14 @@ private[spark] class TaskSchedulerImpl private[scheduler](
     this(
       sc,
       sc.conf.getInt("spark.task.maxFailures", 4),
-      TaskSchedulerImpl.createBlacklistTracker(sc.conf))
+      TaskSchedulerImpl.createBlacklistTracker(sc))
   }
 
   def this(sc: SparkContext, maxTaskFailures: Int, isLocal: Boolean) = {
     this(
       sc,
       maxTaskFailures,
-      TaskSchedulerImpl.createBlacklistTracker(sc.conf),
+      TaskSchedulerImpl.createBlacklistTracker(sc),
       isLocal = isLocal)
   }
 
@@ -700,9 +700,9 @@ private[spark] object TaskSchedulerImpl {
     retval.toList
   }
 
-  private def createBlacklistTracker(conf: SparkConf): Option[BlacklistTracker] = {
-    if (BlacklistTracker.isBlacklistEnabled(conf)) {
-      Some(new BlacklistTracker(conf))
+  private def createBlacklistTracker(sc: SparkContext): Option[BlacklistTracker] = {
+    if (BlacklistTracker.isBlacklistEnabled(sc.conf)) {
+      Some(new BlacklistTracker(sc))
     } else {
       None
     }

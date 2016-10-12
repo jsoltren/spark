@@ -17,6 +17,7 @@
 
 package org.apache.spark;
 
+import org.apache.log4j.Logger;
 import org.apache.spark.scheduler.*;
 
 /**
@@ -29,6 +30,8 @@ import org.apache.spark.scheduler.*;
  * from the SparkListener trait).
  */
 public class SparkFirehoseListener implements SparkListenerInterface {
+
+    final static Logger logger = Logger.getLogger(SparkFirehoseListener.class);
 
     public void onEvent(SparkListenerEvent event) { }
 
@@ -111,6 +114,28 @@ public class SparkFirehoseListener implements SparkListenerInterface {
     @Override
     public final void onExecutorRemoved(SparkListenerExecutorRemoved executorRemoved) {
         onEvent(executorRemoved);
+    }
+
+    @Override
+    public final void onExecutorBlacklisted(SparkListenerExecutorBlacklisted executorBlacklisted) {
+        logger.info("Hit onExecutorBlacklisted in SparkFirehoseListener.java");
+        onEvent(executorBlacklisted);
+    }
+
+    @Override
+    public final void onExecutorUnblacklisted(SparkListenerExecutorUnblacklisted executorUnblacklisted) {
+        logger.info("Hit onExecutorUnblacklisted in SparkFirehoseListener.java");
+        onEvent(executorUnblacklisted);
+    }
+
+    @Override
+    public final void onNodeBlacklisted(SparkListenerNodeBlacklisted nodeBlacklisted) {
+        onEvent(nodeBlacklisted);
+    }
+
+    @Override
+    public final void onNodeUnblacklisted(SparkListenerNodeUnblacklisted nodeUnblacklisted) {
+        onEvent(nodeUnblacklisted);
     }
 
     @Override

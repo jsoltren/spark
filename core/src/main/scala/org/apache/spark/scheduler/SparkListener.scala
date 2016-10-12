@@ -106,6 +106,30 @@ case class SparkListenerExecutorRemoved(time: Long, executorId: String, reason: 
   extends SparkListenerEvent
 
 @DeveloperApi
+case class SparkListenerExecutorBlacklisted(
+    time: Long,
+    executorId: String,
+    taskFailures: Int,
+    maxFailures: Int)
+  extends SparkListenerEvent
+
+@DeveloperApi
+case class SparkListenerExecutorUnblacklisted(time: Long, executorId: String, reason: String)
+  extends SparkListenerEvent
+
+@DeveloperApi
+case class SparkListenerNodeBlacklisted(
+    time: Long,
+    nodeId: String,
+    executorFailures: Int,
+    maxFailures: Int)
+  extends SparkListenerEvent
+
+@DeveloperApi
+case class SparkListenerNodeUnblacklisted(time: Long, nodeId: String, reason: String)
+  extends SparkListenerEvent
+
+@DeveloperApi
 case class SparkListenerBlockUpdated(blockUpdatedInfo: BlockUpdatedInfo) extends SparkListenerEvent
 
 /**
@@ -239,6 +263,26 @@ private[spark] trait SparkListenerInterface {
   def onExecutorRemoved(executorRemoved: SparkListenerExecutorRemoved): Unit
 
   /**
+   * Called when the blacklist tracker adds an executor to the blacklist.
+   */
+  def onExecutorBlacklisted(executorBlacklisted: SparkListenerExecutorBlacklisted): Unit
+
+  /**
+   * Called when the blacklist tracker removes an executor from the blacklist.
+   */
+  def onExecutorUnblacklisted(executorUnblacklisted: SparkListenerExecutorUnblacklisted): Unit
+
+  /**
+   * Called when the blacklist tracker adds an entire node to the blacklist.
+   */
+  def onNodeBlacklisted(nodeBlacklisted: SparkListenerNodeBlacklisted): Unit
+
+  /**
+   * Called when the blacklist tracker removes an entire node from the blacklist.
+   */
+  def onNodeUnblacklisted(nodeUnblacklisted: SparkListenerNodeUnblacklisted): Unit
+
+  /**
    * Called when the driver receives a block update info.
    */
   def onBlockUpdated(blockUpdated: SparkListenerBlockUpdated): Unit
@@ -292,6 +336,18 @@ abstract class SparkListener extends SparkListenerInterface {
   override def onExecutorAdded(executorAdded: SparkListenerExecutorAdded): Unit = { }
 
   override def onExecutorRemoved(executorRemoved: SparkListenerExecutorRemoved): Unit = { }
+
+  override def onExecutorBlacklisted(
+      executorBlacklisted: SparkListenerExecutorBlacklisted): Unit = { }
+
+  override def onExecutorUnblacklisted(
+      executorUnblacklisted: SparkListenerExecutorUnblacklisted): Unit = { }
+
+  override def onNodeBlacklisted(
+      nodeBlacklisted: SparkListenerNodeBlacklisted): Unit = { }
+
+  override def onNodeUnblacklisted(
+      nodeUnblacklisted: SparkListenerNodeUnblacklisted): Unit = { }
 
   override def onBlockUpdated(blockUpdated: SparkListenerBlockUpdated): Unit = { }
 

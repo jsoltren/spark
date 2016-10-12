@@ -21,7 +21,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config
 import org.apache.spark.util.{Clock, SystemClock, Utils}
@@ -48,8 +48,13 @@ import org.apache.spark.util.{Clock, SystemClock, Utils}
  * one exception is [[nodeBlacklist()]], which can be called without holding a lock.
  */
 private[scheduler] class BlacklistTracker (
+    sc: Option[SparkContext],
     conf: SparkConf,
     clock: Clock = new SystemClock()) extends Logging {
+
+  def this(sc: SparkContext) = {
+    this(Option(sc), sc.getConf)
+  }
 
   BlacklistTracker.validateBlacklistConfs(conf)
   private val MAX_FAILURES_PER_EXEC = conf.get(config.MAX_FAILURES_PER_EXEC)
@@ -85,6 +90,8 @@ private[scheduler] class BlacklistTracker (
    */
   val nodeToFailedExecs: HashMap[String, HashSet[String]] = new HashMap()
 
+  private val listenerBus : Option[LiveListenerBus] = sc.map(_.listenerBus)
+
   def applyBlacklistTimeout(): Unit = {
     val now = clock.getTimeMillis()
     // quickly check if we've got anything to expire from blacklist -- if not, avoid doing any work
@@ -97,6 +104,7 @@ private[scheduler] class BlacklistTracker (
           s"has timed out")
         execsToUnblacklist.foreach { exec =>
           val status = executorIdToBlacklistStatus.remove(exec).get
+          listenerBus.foreach(_.post(SparkListenerExecutorUnblacklisted(now, exec, "TIMEOUT")))
           val failedExecsOnNode = nodeToFailedExecs(status.node)
           failedExecsOnNode.remove(exec)
           if (failedExecsOnNode.isEmpty) {
@@ -109,7 +117,13 @@ private[scheduler] class BlacklistTracker (
         // Un-blacklist any nodes that have been blacklisted longer than the blacklist timeout.
         logInfo(s"Removing nodes $nodesToUnblacklist from blacklist because the blacklist " +
           s"has timed out")
-        nodesToUnblacklist.foreach { node => nodeIdToBlacklistExpiryTime.remove(node) }
+        nodesToUnblacklist.foreach {
+          node => nodeIdToBlacklistExpiryTime.remove(node)
+          // TODO When unblacklisting a node, we implicitly blacklist every executor on that node.
+          // TODO So, send unblacklisting events for every executor on that node.
+          listenerBus.foreach(_.post(
+            SparkListenerNodeUnblacklisted(now, node, "TIMEOUT")))
+        }
         _nodeBlacklist.set(nodeIdToBlacklistExpiryTime.keySet.toSet)
       }
       updateNextExpiryTime()
@@ -156,6 +170,8 @@ private[scheduler] class BlacklistTracker (
           s" task failures in successful task sets")
         val node = failuresInTaskSet.node
         executorIdToBlacklistStatus.put(exec, BlacklistedExecutor(node, expiryTime))
+        listenerBus.foreach(_.post(
+            SparkListenerExecutorBlacklisted(now, exec, newTotal, MAX_FAILURES_PER_EXEC)))
         executorIdToFailureList.remove(exec)
         updateNextExpiryTime()
 
@@ -167,6 +183,11 @@ private[scheduler] class BlacklistTracker (
           logInfo(s"Blacklisting node $node because it has ${blacklistedExecsOnNode.size} " +
             s"executors blacklisted: ${blacklistedExecsOnNode}")
           nodeIdToBlacklistExpiryTime.put(node, expiryTime)
+          // TODO When blacklisting a node, we implicitly blacklist every executor on that node.
+          // TODO So, send blacklisting events for every executor on that node.
+          listenerBus.foreach(_.post(
+              SparkListenerNodeBlacklisted(
+                  now, node, blacklistedExecsOnNode.size, MAX_FAILED_EXEC_PER_NODE)))
           _nodeBlacklist.set(nodeIdToBlacklistExpiryTime.keySet.toSet)
         }
       }

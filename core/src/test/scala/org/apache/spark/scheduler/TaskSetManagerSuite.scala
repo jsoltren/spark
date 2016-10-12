@@ -425,7 +425,7 @@ class TaskSetManagerSuite extends SparkFunSuite with LocalSparkContext with Logg
     val taskSet = FakeTask.createTaskSet(1, Seq(TaskLocation("host1", "exec1")))
     val clock = new ManualClock
 
-    val blacklist = new BlacklistTracker(conf, clock)
+    val blacklist = new BlacklistTracker(null, conf, clock)
     val manager = new TaskSetManager(sched, taskSet, 4, Some(blacklist), clock = clock)
 
     {
