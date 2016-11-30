@@ -41,7 +41,7 @@ class BlacklistTrackerSuite extends SparkFunSuite with BeforeAndAfterEach with M
     scheduler = mockTaskSchedWithConf(conf)
 
     clock.setTime(0)
-    blacklist = new BlacklistTracker(null, conf, clock)
+    blacklist = new BlacklistTracker(null, conf, null, clock)
   }
 
   override def afterEach(): Unit = {
@@ -90,7 +90,7 @@ class BlacklistTrackerSuite extends SparkFunSuite with BeforeAndAfterEach with M
 
     clock.setTime(0)
     listenerBusMock = mock[LiveListenerBus]
-    blacklist = new BlacklistTracker(listenerBusMock, conf, clock)
+    blacklist = new BlacklistTracker(listenerBusMock, conf, null, clock)
   }
 
   test("Blacklisting individual tasks and checking for SparkListenerEvents") {
