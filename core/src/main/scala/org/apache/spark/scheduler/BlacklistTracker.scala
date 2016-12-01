@@ -50,10 +50,11 @@ import org.apache.spark.util.{Clock, SystemClock, Utils}
 private[scheduler] class BlacklistTracker (
     private val listenerBus: LiveListenerBus,
     conf: SparkConf,
+    sc: Option[SparkContext],
     clock: Clock = new SystemClock()) extends Logging {
 
   def this(sc: SparkContext) = {
-    this(sc.listenerBus, sc.getConf)
+    this(sc.listenerBus, sc.getConf, Some(sc))
   }
 
   BlacklistTracker.validateBlacklistConfs(conf)
@@ -184,6 +185,8 @@ private[scheduler] class BlacklistTracker (
           logInfo(s"Blacklisting node $node because it has ${blacklistedExecsOnNode.size} " +
             s"executors blacklisted: ${blacklistedExecsOnNode}")
           nodeIdToBlacklistExpiryTime.put(node, expiryTime)
+          // TODO Only do this if a config value is set.
+          sc.foreach(context => context.killExecutorsOnHost(node))
           listenerBus.post(SparkListenerNodeBlacklisted(now, node, blacklistedExecsOnNode.size))
           _nodeBlacklist.set(nodeIdToBlacklistExpiryTime.keySet.toSet)
         }
