@@ -92,6 +92,9 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
   // The num of current max ExecutorId used to re-register appMaster
   @volatile protected var currentExecutorIdCounter = 0
 
+  // The set of executors we have on each host.
+  protected val hostToExecutors = new HashMap[String, HashSet[String]]
+
   class DriverEndpoint(override val rpcEnv: RpcEnv, sparkProperties: Seq[(String, String)])
     extends ThreadSafeRpcEndpoint with Logging {
 
@@ -182,6 +185,10 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
           executorRef.send(RegisteredExecutor)
           // Note: some tests expect the reply to come after we put the executor in the map
           context.reply(true)
+          if (!hostToExecutors.contains(hostname)) {
+            hostToExecutors(hostname) = new HashSet[String]()
+          }
+          hostToExecutors(hostname) += executorId
           listenerBus.post(
             SparkListenerExecutorAdded(System.currentTimeMillis(), executorId, data))
           makeOffers()
@@ -204,6 +211,14 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
         // automatically, so try to tell the executor to stop itself. See SPARK-13519.
         executorDataMap.get(executorId).foreach(_.executorEndpoint.send(StopExecutor))
         removeExecutor(executorId, reason)
+        hostToExecutors.foreach( e => {
+          val execs = e._2
+          if (execs.contains(executorId)) execs -= executorId
+          if (execs.isEmpty) {
+            val host = e._1
+            hostToExecutors -= host
+          }
+        })
         context.reply(true)
 
       case RetrieveSparkProps =>
@@ -603,6 +618,15 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
    */
   protected def doKillExecutors(executorIds: Seq[String]): Future[Boolean] =
     Future.successful(false)
+
+  /**
+   * Request that the cluster manager kill all executors on a given host.
+   * @return whether the kill request is acknowledged
+   */
+  final override def killExecutorsOnHost(host: String): Seq[String] = {
+    logInfo(s"Requesting to kill any and all executors on host ${host}")
+    killExecutors(hostToExecutors(host).toSeq, replace = false, force = true)
+  }
 }
 
 private[spark] object CoarseGrainedSchedulerBackend {
