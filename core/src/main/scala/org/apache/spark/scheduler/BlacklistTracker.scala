@@ -21,10 +21,9 @@ import java.util.concurrent.atomic.AtomicReference
 
 import scala.collection.mutable.{ArrayBuffer, HashMap, HashSet}
 
-import org.apache.spark.SparkConf
+import org.apache.spark.{SparkConf, SparkContext}
 import org.apache.spark.internal.Logging
 import org.apache.spark.internal.config
-import org.apache.spark.scheduler.cluster.CoarseGrainedSchedulerBackend
 import org.apache.spark.util.{Clock, SystemClock, Utils}
 
 /**
@@ -51,11 +50,10 @@ import org.apache.spark.util.{Clock, SystemClock, Utils}
 private[scheduler] class BlacklistTracker (
     private val listenerBus: LiveListenerBus,
     conf: SparkConf,
-    scheduler: Option[CoarseGrainedSchedulerBackend],
     clock: Clock = new SystemClock()) extends Logging {
 
-  def this(sched: CoarseGrainedSchedulerBackend) = {
-    this(sched.listenerBus, sched.conf, Some(sched))
+  def this(sc: SparkContext) = {
+    this(sc.listenerBus, sc.getConf)
   }
 
   BlacklistTracker.validateBlacklistConfs(conf)

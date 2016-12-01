@@ -49,7 +49,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
   protected val totalCoreCount = new AtomicInteger(0)
   // Total number of executors that are currently registered
   protected val totalRegisteredExecutors = new AtomicInteger(0)
-  val conf = scheduler.sc.conf
+  protected val conf = scheduler.sc.conf
   private val maxRpcMessageSize = RpcUtils.maxMessageSizeBytes(conf)
   private val defaultAskTimeout = RpcUtils.askRpcTimeout(conf)
   // Submit tasks only after (registered resources / total expected resources)
@@ -73,7 +73,7 @@ class CoarseGrainedSchedulerBackend(scheduler: TaskSchedulerImpl, val rpcEnv: Rp
   @GuardedBy("CoarseGrainedSchedulerBackend.this")
   private var numPendingExecutors = 0
 
-  val listenerBus = scheduler.sc.listenerBus
+  private val listenerBus = scheduler.sc.listenerBus
 
   // Executors we have requested the cluster manager to kill that have not died yet; maps
   // the executor ID to whether it was explicitly killed by the driver (and thus shouldn't
